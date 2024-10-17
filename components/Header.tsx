@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation"; // Importa il router per conoscere la pagina corrente
 import ThemeToggle from "./ThemeToggle";
+import { signOut, useSession } from "next-auth/react"; // Importa signOut e useSession
 
 const Header = () => {
   const pathname = usePathname(); // Ottieni il percorso corrente
+  const { data: session } = useSession(); // Ottieni lo stato della sessione
 
   // Condizione per nascondere i pulsanti "Login" e "Register" su /auth e /dashboard
   const isAuthOrDashboard =
@@ -19,8 +21,8 @@ const Header = () => {
       </div>
 
       <div className="flex items-center">
-        {/* Mostra i pulsanti Login e Register solo se non siamo su auth o dashboard */}
-        {!isAuthOrDashboard && (
+        {/* Mostra i pulsanti Login e Register solo se non siamo su auth o dashboard e non siamo loggati */}
+        {!isAuthOrDashboard && !session && (
           <div className="mr-4">
             <Link
               href="/auth/login"
@@ -35,6 +37,16 @@ const Header = () => {
               Registrati
             </Link>
           </div>
+        )}
+
+        {/* Mostra il pulsante Logout solo se l'utente è loggato e siamo sulla pagina dashboard */}
+        {session && pathname.startsWith("/dashboard") && (
+          <button
+            onClick={() => signOut()}
+            className="ml-4 px-4 py-2 bg-red-500 text-white rounded"
+          >
+            Logout
+          </button>
         )}
 
         {/* Sun/Moon Toggle visibile su tutte le pagine */}

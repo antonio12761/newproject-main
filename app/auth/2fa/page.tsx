@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
@@ -31,24 +33,39 @@ const TwoFactorPage = () => {
 
   const onSubmit = async (data: TwoFactorInputs) => {
     setIsSubmitting(true);
-    const res = await fetch("/api/auth/verify-2fa", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
 
-    const result = await res.json();
-    setIsSubmitting(false);
+    try {
+      const res = await fetch("/api/auth/verify-2fa", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      });
 
-    if (res.ok) {
-      router.push("/dashboard");
-    } else {
+      const result = await res.json();
+      setIsSubmitting(false);
+
+      if (res.ok) {
+        Swal.fire({
+          icon: "success",
+          title: "Codice 2FA verificato!",
+          text: "Accesso effettuato con successo.",
+        });
+        router.push("/dashboard");
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Errore",
+          text: result.message || "Codice 2FA non valido.",
+        });
+      }
+    } catch (error) {
+      setIsSubmitting(false);
       Swal.fire({
         icon: "error",
         title: "Errore",
-        text: result.message,
+        text: "Si è verificato un errore durante la verifica del codice 2FA.",
       });
     }
   };

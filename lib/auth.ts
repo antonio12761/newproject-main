@@ -2,8 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import prisma from "./prisma";
-import { sendTwoFactorCode } from "./twoFactor";
-import { Session } from "next-auth"; // Importa il tipo Session
+import { generateTwoFactorCode, sendTwoFactorCode } from "./twoFactor";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -15,12 +14,14 @@ export const authOptions: NextAuthOptions = {
         twoFactorCode: { label: "Codice 2FA", type: "text" },
       },
       authorize: async (credentials) => {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email e password sono obbligatori");
+        if (!credentials) {
+          throw new Error("Credenziali non fornite.");
         }
-
+      
+        const { email, password, twoFactorCode } = credentials;
+      
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
+          where: { email: credentials?.email },
         });
 
         if (!user) {
@@ -30,16 +31,30 @@ export const authOptions: NextAuthOptions = {
         if (!user.emailVerified) {
           throw new Error("Email non verificata.");
         }
-
+        // Controlla se il 2FA è abilitato
         if (user.twoFactorEnabled) {
-          if (!credentials.twoFactorCode) {
-            await sendTwoFactorCode(user.email);
-            throw new Error("Codice 2FA richiesto.");
+          console.log("Codice 2FA inviato a:", user.email);
+          console.log("Codice fornito dall'utente:", credentials.twoFactorCode);
+          console.log("Codice salvato nel database:", user.twoFactorCode);
+
+          // Se non c'è il codice 2FA, invia l'email e ritorna un errore
+          if (!credentials?.twoFactorCode) {
+            await sendTwoFactorCode(user.email, generateTwoFactorCode());
+            throw new Error(
+              "Codice 2FA inviato. Controlla la tua email e riprova."
+            );
           }
 
+          // Verifica il codice 2FA inserito
           if (credentials.twoFactorCode !== user.twoFactorCode) {
             throw new Error("Codice 2FA non valido.");
           }
+
+          // Se il codice 2FA è valido, rimuovilo dal database
+          await prisma.user.update({
+            where: { email: user.email },
+            data: { twoFactorCode: null },
+          });
         }
 
         return {
@@ -54,14 +69,14 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
+  adapter: PrismaAdapter(prisma),
   callbacks: {
-    async session({ session, token }: { session: Session; token: any }) {
-      // Tipizza session
-      session.user.id = token.id;
-      session.user.role = token.role;
+    async session({ session, token }) {
+      session.user.id = token.id as string;
+      session.user.role = token.role as string;
       return session;
     },
-    async jwt({ token, user }: { token: any; user?: any }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
         token.role = user.role;

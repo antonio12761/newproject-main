@@ -33,7 +33,7 @@ const LoginPage = () => {
   });
 
   const onSubmit = async (data: LoginFormInputs) => {
-    setIsSubmitting(true); // Imposta il caricamento su true
+    setIsSubmitting(true);
 
     const result = await signIn("credentials", {
       redirect: false,
@@ -41,14 +41,19 @@ const LoginPage = () => {
       password: data.password,
     });
 
-    setIsSubmitting(false); // Reimposta il caricamento su false
+    setIsSubmitting(false);
 
     if (result?.error) {
-      Swal.fire({
-        icon: "error",
-        title: "Errore",
-        text: result.error,
-      });
+      if (result.error.includes("Codice 2FA inviato")) {
+        // Reindirizza alla pagina di inserimento del codice 2FA
+        router.push("/auth/2fa");
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Errore",
+          text: result.error,
+        });
+      }
     } else {
       router.push("/dashboard");
     }
